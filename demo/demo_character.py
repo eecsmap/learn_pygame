@@ -1,4 +1,7 @@
 import pygame
+
+pygame.mixer.pre_init(44100, 32, 2, 4096)
+pygame.mixer.init()
 pygame.init()
 
 FULL_SCREEN_SIZE = pygame.display.list_modes()[0]
@@ -25,27 +28,38 @@ font = pygame.font.SysFont(None, font_height)
 
 UP, RIGHT, DOWN, LEFT = 0, 1, 2, 3
 
+snow_walk = pygame.mixer.Sound('SnowWalk.ogg')
+
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super(Player, self).__init__()
         self.raw_image = pygame.image.load('warrior_f.png').convert_alpha()
+        self.raw_bubble = pygame.image.load('balloon_16.png').convert_alpha()
         self.width = 32
         self.height = 36
         self.index = 1 # still frame
-        self.frame = 3
+        self.frame = 4
         self.images = {
-            UP: [self.raw_image.subsurface((self.width * col, self.height * UP), (self.width, self.height)) for col in range(self.frame)],
-            RIGHT: [self.raw_image.subsurface((self.width * col, self.height * RIGHT), (self.width, self.height)) for col in range(self.frame)],
-            DOWN: [self.raw_image.subsurface((self.width * col, self.height * DOWN), (self.width, self.height)) for col in range(self.frame)],
-            LEFT: [self.raw_image.subsurface((self.width * col, self.height * LEFT), (self.width, self.height)) for col in range(self.frame)],
+            UP: [self.raw_image.subsurface((self.width * col, self.height * UP), (self.width, self.height)) for col in range(self.frame - 1)],
+            RIGHT: [self.raw_image.subsurface((self.width * col, self.height * RIGHT), (self.width, self.height)) for col in range(self.frame - 1)],
+            DOWN: [self.raw_image.subsurface((self.width * col, self.height * DOWN), (self.width, self.height)) for col in range(self.frame - 1)],
+            LEFT: [self.raw_image.subsurface((self.width * col, self.height * LEFT), (self.width, self.height)) for col in range(self.frame - 1)],
         }
+        for i in range(4):
+            # add the missing middle frame
+            self.images[i].append(self.images[i][1])
         self.direction = DOWN
-        self.image = self.images[self.direction][self.index]
+        self.bubble_height = 16
+        self.bubble_index = 0
+        self.image = pygame.Surface((self.width, self.height + self.bubble_height))
+        self.image.blit(self.raw_bubble.subsurface((16 * self.bubble_index, 0), (16, 16)), (self.width - 16, 0))
+        self.image.blit(self.images[self.direction][self.index], (0, self.bubble_height))
         self.rect = self.image.get_rect()
         self.sum = 0
         self.vectors = [(0, -1), (1, 0), (0, 1), (-1, 0)]
-        self.speed = 400
         self.is_moving = False
+        # two full steps (4 half steps) per sec in 4 frames walks about self.width
+        self.step_width = self.width // self.frame
 
     def update(self, millisecond):
         keys = pygame.key.get_pressed()
@@ -57,20 +71,30 @@ class Player(pygame.sprite.Sprite):
         self.is_moving = new_direction is not None
         if new_direction == None:
             self.index = 1
-        elif new_direction != self.direction:
-            self.direction = new_direction
-            self.index = 0
+            self.is_moving = False
+        else:
+            self.is_moving = True
+            if new_direction != self.direction:
+                self.direction = new_direction
+                self.index = 0
 
         self.sum += millisecond
-        if self.sum > 1000 / 6: # 6 frames per sec
+        # every 4 frames is two steps
+        if self.sum > 1000 / 4: # 4 frames per sec to make four half/small steps per sec
             self.sum = 0
             if self.is_moving:
                 self.index += 1
                 self.index = self.index % self.frame
-                self.rect.move_ip(* (self.speed * millisecond / 1000 * i for i in self.vectors[self.direction]))
+                if self.index in [0, 2]:
+                    snow_walk.play()
+                self.rect.move_ip(* (self.step_width * i for i in self.vectors[self.direction]))
             else:
                 self.index = 1
-            self.image = self.images[self.direction][self.index]
+            self.image.fill('black')
+            self.bubble_index += 1
+            self.bubble_index = self.bubble_index % 8
+            self.image.blit(self.raw_bubble.subsurface((16 * self.bubble_index, 0), (16, 16)), (self.width - 16, 0))
+            self.image.blit(self.images[self.direction][self.index], (0, self.bubble_height))
 
 player = Player()
 all_players = pygame.sprite.Group()
