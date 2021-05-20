@@ -31,7 +31,7 @@ class Player(pygame.sprite.Sprite):
         self.raw_image = pygame.image.load('warrior_f.png').convert_alpha()
         self.width = 32
         self.height = 36
-        self.index = 0
+        self.index = 1 # still frame
         self.frame = 3
         self.images = {
             UP: [self.raw_image.subsurface((self.width * col, self.height * UP), (self.width, self.height)) for col in range(self.frame)],
@@ -45,19 +45,32 @@ class Player(pygame.sprite.Sprite):
         self.sum = 0
         self.vectors = [(0, -1), (1, 0), (0, 1), (-1, 0)]
         self.speed = 400
+        self.is_moving = False
 
-    def update(self, millisecond, new_direction):
-        
-        if new_direction != self.direction:
+    def update(self, millisecond):
+        keys = pygame.key.get_pressed()
+        new_direction = None
+        if keys[pygame.K_UP]: new_direction = UP
+        if keys[pygame.K_DOWN]: new_direction = DOWN
+        if keys[pygame.K_RIGHT]: new_direction = RIGHT
+        if keys[pygame.K_LEFT]: new_direction = LEFT
+        self.is_moving = new_direction is not None
+        if new_direction == None:
+            self.index = 1
+        elif new_direction != self.direction:
             self.direction = new_direction
             self.index = 0
+
         self.sum += millisecond
         if self.sum > 1000 / 6: # 6 frames per sec
             self.sum = 0
-            self.index += 1
-            self.index = self.index % self.frame
+            if self.is_moving:
+                self.index += 1
+                self.index = self.index % self.frame
+                self.rect.move_ip(* (self.speed * millisecond / 1000 * i for i in self.vectors[self.direction]))
+            else:
+                self.index = 1
             self.image = self.images[self.direction][self.index]
-            self.rect.move_ip(* (self.speed * millisecond / 1000 * i for i in self.vectors[self.direction]))
 
 player = Player()
 all_players = pygame.sprite.Group()
@@ -69,17 +82,9 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
-            direction = UP
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
-            direction = DOWN
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
-            direction = LEFT
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-            direction = RIGHT
 
     screen.fill('black')
-    all_players.update(clock.tick(50), direction)
+    all_players.update(clock.tick(50))
     all_players.draw(screen)
     pygame.display.flip()
 
