@@ -31,7 +31,7 @@ UP, RIGHT, DOWN, LEFT = 0, 1, 2, 3
 snow_walk = pygame.mixer.Sound('SnowWalk.ogg')
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, controls):
         super(Player, self).__init__()
         self.raw_image = pygame.image.load('warrior_f.png').convert_alpha()
         self.raw_bubble = pygame.image.load('balloon_16.png').convert_alpha()
@@ -60,14 +60,15 @@ class Player(pygame.sprite.Sprite):
         self.is_moving = False
         # two full steps (4 half steps) per sec in 4 frames walks about self.width
         self.step_width = self.width // self.frame
+        self.controls = controls
 
     def update(self, millisecond):
         keys = pygame.key.get_pressed()
         new_direction = None
-        if keys[pygame.K_UP]: new_direction = UP
-        if keys[pygame.K_DOWN]: new_direction = DOWN
-        if keys[pygame.K_RIGHT]: new_direction = RIGHT
-        if keys[pygame.K_LEFT]: new_direction = LEFT
+        if keys[self.controls[UP]]: new_direction = UP
+        if keys[self.controls[DOWN]]: new_direction = DOWN
+        if keys[self.controls[RIGHT]]: new_direction = RIGHT
+        if keys[self.controls[LEFT]]: new_direction = LEFT
         self.is_moving = new_direction is not None
         if new_direction == None:
             self.index = 1
@@ -90,15 +91,19 @@ class Player(pygame.sprite.Sprite):
                 self.rect.move_ip(* (self.step_width * i for i in self.vectors[self.direction]))
             else:
                 self.index = 1
-            self.image.fill('black')
+            #self.image.fill('black')
+            self.image = pygame.Surface((self.width, self.height + self.bubble_height), 0, 32)
             self.bubble_index += 1
             self.bubble_index = self.bubble_index % 8
             self.image.blit(self.raw_bubble.subsurface((16 * self.bubble_index, 0), (16, 16)), (self.width - 16, 0))
             self.image.blit(self.images[self.direction][self.index], (0, self.bubble_height))
+            self.image.set_colorkey('black')
 
-player = Player()
+player1 = Player((pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT))
 all_players = pygame.sprite.Group()
-all_players.add(player)
+all_players.add(player1)
+player2 = Player((pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a))
+all_players.add(player2)
 clock = pygame.time.Clock()
 run = True
 direction = DOWN
@@ -107,7 +112,7 @@ while run:
         if event.type == pygame.QUIT:
             run = False
 
-    screen.fill('black')
+    screen.fill('grey')
     all_players.update(clock.tick(50))
     all_players.draw(screen)
     pygame.display.flip()
